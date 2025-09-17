@@ -1,79 +1,85 @@
 <script lang="ts">
-  import logo from './assets/images/logo-universal.png'
-  import {Greet} from '../wailsjs/go/main/App.js'
+  import { ChooseAndOpenArchive, ListPages, GetPageDataURL } from '../wailsjs/go/main/App.js'
 
-  let resultText: string = "Please enter your name below 👇"
-  let name: string
+  let pages: string[] = []
+  let index = 0
+  let src: string | null = null
+  let error: string | null = null
 
-  function greet(): void {
-    Greet(name).then(result => resultText = result)
+  async function loadCurrent() {
+    if (pages.length === 0) { src = null; return }
+    try {
+      src = await GetPageDataURL(index)
+      error = null
+    } catch (e) {
+      error = String(e)
+    }
+  }
+
+  async function openZip() {
+    try {
+      pages = await ChooseAndOpenArchive()
+      index = 0
+      await loadCurrent()
+    } catch (e) {
+      error = String(e)
+    }
+  }
+
+  async function next() {
+    if (index + 1 < pages.length) {
+      index += 1
+      await loadCurrent()
+    }
+  }
+
+  async function prev() {
+    if (index > 0) {
+      index -= 1
+      await loadCurrent()
+    }
+  }
+
+  function onKey(e: KeyboardEvent) {
+    if (e.key === 'ArrowRight' || e.key === ' ') next()
+    if (e.key === 'ArrowLeft'  || e.key === 'Backspace') prev()
   }
 </script>
 
-<main>
-  <img alt="Wails logo" id="logo" src="{logo}">
-  <div class="result" id="result">{resultText}</div>
-  <div class="input-box" id="input">
-    <input autocomplete="off" bind:value={name} class="input" id="name" type="text"/>
-    <button class="btn" on:click={greet}>Greet</button>
-  </div>
+<main on:keydown={onKey} tabindex="0">
+  <header class="toolbar">
+    <button class="btn" on:click={openZip}>Open ZIP/CBZ</button>
+    {#if pages.length > 0}
+      <button class="btn" on:click={prev} disabled={index===0}>Prev</button>
+      <span class="status">{index + 1} / {pages.length} — {pages[index]}</span>
+      <button class="btn" on:click={next} disabled={index+1>=pages.length}>Next</button>
+    {/if}
+  </header>
+
+  {#if error}
+    <div class="error">{error}</div>
+  {/if}
+
+  {#if src}
+    <div class="viewer">
+      <img src={src} alt={pages[index]} />
+    </div>
+  {:else}
+    <div class="placeholder">Open a ZIP/CBZ to start.</div>
+  {/if}
 </main>
 
 <style>
-
-  #logo {
-    display: block;
-    width: 50%;
-    height: 50%;
-    margin: auto;
-    padding: 10% 0 0;
-    background-position: center;
-    background-repeat: no-repeat;
-    background-size: 100% 100%;
-    background-origin: content-box;
+  :global(html, body, #app) { height: 100%; }
+  main { height: 100%; display: flex; flex-direction: column; }
+  .toolbar {
+    display: flex; gap: .5rem; align-items: center;
+    padding: .5rem .75rem; border-bottom: 1px solid #223;
   }
-
-  .result {
-    height: 20px;
-    line-height: 20px;
-    margin: 1.5rem auto;
-  }
-
-  .input-box .btn {
-    width: 60px;
-    height: 30px;
-    line-height: 30px;
-    border-radius: 3px;
-    border: none;
-    margin: 0 0 0 20px;
-    padding: 0 8px;
-    cursor: pointer;
-  }
-
-  .input-box .btn:hover {
-    background-image: linear-gradient(to top, #cfd9df 0%, #e2ebf0 100%);
-    color: #333333;
-  }
-
-  .input-box .input {
-    border: none;
-    border-radius: 3px;
-    outline: none;
-    height: 30px;
-    line-height: 30px;
-    padding: 0 10px;
-    background-color: rgba(240, 240, 240, 1);
-    -webkit-font-smoothing: antialiased;
-  }
-
-  .input-box .input:hover {
-    border: none;
-    background-color: rgba(255, 255, 255, 1);
-  }
-
-  .input-box .input:focus {
-    border: none;
-    background-color: rgba(255, 255, 255, 1);
-  }
-
+  .btn { cursor: pointer; padding: .3rem .6rem; }
+  .status { opacity: .8; }
+  .viewer { flex: 1; display: grid; place-items: center; overflow: auto; background: #111; }
+  img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  .placeholder { flex: 1; display: grid; place-items: center; color: #aaa; }
+  .error { color: #f66; padding: .5rem .75rem; }
 </style>
