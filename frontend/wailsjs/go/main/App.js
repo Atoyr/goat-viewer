@@ -14,10 +14,6 @@ export function GetPageDataURL(arg1) {
   return window['go']['main']['App']['GetPageDataURL'](arg1);
 }
 
-export function Greet(arg1) {
-  return window['go']['main']['App']['Greet'](arg1);
-}
-
 export function ListPages() {
   return window['go']['main']['App']['ListPages']();
 }

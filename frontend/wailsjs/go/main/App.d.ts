@@ -7,8 +7,6 @@ export function CloseArchive():Promise<void>;
 
 export function GetPageDataURL(arg1:number):Promise<string>;
 
-export function Greet(arg1:string):Promise<string>;
-
 export function ListPages():Promise<Array<string>>;
 
 export function OpenArchive(arg1:string):Promise<void>;
