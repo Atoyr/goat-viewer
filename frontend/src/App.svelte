@@ -1,48 +1,58 @@
 <script lang="ts">
-  import { ChooseAndOpenArchive, ListPages, GetPageDataURL } from '../wailsjs/go/main/App.js'
-
-  let pages: string[] = []
-  let index = 0
-  let src: string | null = null
-  let error: string | null = null
-
+  import './app.css';
+  
+  import {
+    ChooseAndOpenArchive,
+    ListPages,
+    GetPageDataURL
+  } from '../wailsjs/go/main/App.js';
+  
+  let pages: string[] = [];
+  let index = 0;
+  let src: string | null = null;
+  let error: string | null = null;
+  
   async function loadCurrent() {
-    if (pages.length === 0) { src = null; return }
+    if (pages.length === 0) {
+      src = null;
+      return;
+    }
+  
     try {
-      src = await GetPageDataURL(index)
-      error = null
-    } catch (e) {
-      error = String(e)
+      src = await GetPageDataURL(index);
+      error = null;
+    } catch(e) {
+      error = String(e);
     }
   }
-
+  
   async function openZip() {
     try {
-      pages = await ChooseAndOpenArchive()
-      index = 0
-      await loadCurrent()
-    } catch (e) {
-      error = String(e)
+      pages = await ChooseAndOpenArchive();
+      index = 0;
+      await loadCurrent();
+    } catch(e) {
+      error = String(e);
     }
   }
-
+  
   async function next() {
     if (index + 1 < pages.length) {
-      index += 1
-      await loadCurrent()
+      index += 1;
+      await loadCurrent();
     }
   }
-
+  
   async function prev() {
     if (index > 0) {
-      index -= 1
-      await loadCurrent()
+      index -= 1;
+      await loadCurrent();
     }
   }
-
+  
   function onKey(e: KeyboardEvent) {
-    if (e.key === 'ArrowRight' || e.key === ' ') next()
-    if (e.key === 'ArrowLeft'  || e.key === 'Backspace') prev()
+    if (e.key === 'ArrowRight' || e.key === ' ') next();
+    if (e.key === 'ArrowLeft' || e.key === 'Backspace') prev();
   }
 </script>
 
