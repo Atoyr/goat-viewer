@@ -10,16 +10,19 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"golang.org/x/text/encoding/japanese"
+	"golang.org/x/text/transform"
 )
 
 // App struct
 type App struct {
-	ctx context.Context
-	zr  *zip.ReadCloser
-	// sorted indices of image entries within zr.File
-	pageIdx []int
+	ctx       context.Context
+	zr        *zip.ReadCloser
+	pageIdx   []int
+	pageNames []string // decoded display names (dir/file)
 }
 
 // NewApp creates a new App application struct
@@ -59,6 +62,7 @@ func (a *App) OpenArchive(path string) error {
 		_ = a.zr.Close()
 		a.zr = nil
 		a.pageIdx = nil
+		a.pageNames = nil
 	}
 	zr, err := zip.OpenReader(path)
 	if err != nil {
@@ -76,23 +80,35 @@ func (a *App) OpenArchive(path string) error {
 			idxs = append(idxs, i)
 		}
 	}
-	// Sort by natural filename order
+	// Sort by directory first, then by filename, both using natural order.
+	// ZIP paths always use forward slashes.
 	sort.Slice(idxs, func(i, j int) bool {
-		return naturalLess(zr.File[idxs[i]].Name, zr.File[idxs[j]].Name)
+		ni := zr.File[idxs[i]].Name
+		nj := zr.File[idxs[j]].Name
+		slashI := strings.LastIndex(ni, "/")
+		slashJ := strings.LastIndex(nj, "/")
+		dirI, baseI := ni[:slashI+1], ni[slashI+1:]
+		dirJ, baseJ := nj[:slashJ+1], nj[slashJ+1:]
+		if dirI != dirJ {
+			return naturalLess(dirI, dirJ)
+		}
+		return naturalLess(baseI, baseJ)
 	})
 	a.pageIdx = idxs
+	a.pageNames = make([]string, len(idxs))
+	for i, idx := range idxs {
+		a.pageNames[i] = decodeName(zr.File[idx])
+	}
 	return nil
 }
 
-// ListPages returns the sorted page names.
+// ListPages returns the sorted page names as "dir/file" (decoded).
 func (a *App) ListPages() []string {
 	if a.zr == nil {
 		return nil
 	}
-	out := make([]string, len(a.pageIdx))
-	for i, idx := range a.pageIdx {
-		out[i] = filepath.Base(a.zr.File[idx].Name)
-	}
+	out := make([]string, len(a.pageNames))
+	copy(out, a.pageNames)
 	return out
 }
 
@@ -122,12 +138,27 @@ func (a *App) CloseArchive() error {
 		err := a.zr.Close()
 		a.zr = nil
 		a.pageIdx = nil
+		a.pageNames = nil
 		return err
 	}
 	return nil
 }
 
 // Helpers
+
+// decodeName returns a human-readable path from a ZIP file entry.
+// ZIP entries created on Japanese Windows use Shift-JIS when the UTF-8 flag is absent.
+func decodeName(f *zip.File) string {
+	name := f.Name
+	if !f.NonUTF8 && utf8.ValidString(name) {
+		return name
+	}
+	decoded, _, err := transform.String(japanese.ShiftJIS.NewDecoder(), name)
+	if err != nil {
+		return name
+	}
+	return decoded
+}
 
 func isImage(name string) bool {
 	ext := strings.ToLower(filepath.Ext(name))
@@ -160,9 +191,8 @@ var numChunk = regexp.MustCompile(`\d+|\D+`)
 
 // naturalLess compares strings using natural numeric ordering.
 func naturalLess(a, b string) bool {
-	// Compare base names only
-	aa := strings.ToLower(filepath.Base(a))
-	bb := strings.ToLower(filepath.Base(b))
+	aa := strings.ToLower(a)
+	bb := strings.ToLower(b)
 	as := numChunk.FindAllString(aa, -1)
 	bs := numChunk.FindAllString(bb, -1)
 	for i := 0; i < len(as) && i < len(bs); i++ {
