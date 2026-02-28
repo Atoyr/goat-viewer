@@ -106,7 +106,7 @@
   }
   .btn { cursor: pointer; padding: .3rem .6rem; }
   .status { opacity: .8; }
-  .viewer { flex: 1; display: grid; place-items: center; overflow: auto; background: #111; }
+  .viewer { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #111; }
   img { max-width: 100%; max-height: 100%; object-fit: contain; }
   .placeholder { flex: 1; display: grid; place-items: center; color: #aaa; }
   .error { color: #f66; padding: .5rem .75rem; }
