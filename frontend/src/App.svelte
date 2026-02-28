@@ -1,23 +1,38 @@
 <script lang="ts">
-  import './app.css';
-  
+  import { OnFileDrop } from '../wailsjs/runtime/runtime.js';
   import {
     ChooseAndOpenArchive,
+    OpenArchive,
     ListPages,
     GetPageDataURL
   } from '../wailsjs/go/main/App.js';
-  
+
   let pages: string[] = [];
   let index = 0;
   let src: string | null = null;
   let error: string | null = null;
-  
+  let dropping = false;
+
+  OnFileDrop(async (_x: number, _y: number, paths: string[]) => {
+    dropping = false;
+    const zip = paths.find(p => /\.(zip|cbz)$/i.test(p));
+    if (!zip) return;
+    try {
+      await OpenArchive(zip);
+      pages = await ListPages();
+      index = 0;
+      await loadCurrent();
+      error = null;
+    } catch(e) {
+      error = String(e);
+    }
+  }, false);
+
   async function loadCurrent() {
     if (pages.length === 0) {
       src = null;
       return;
     }
-  
     try {
       src = await GetPageDataURL(index);
       error = null;
@@ -25,7 +40,7 @@
       error = String(e);
     }
   }
-  
+
   async function openZip() {
     try {
       pages = await ChooseAndOpenArchive();
@@ -35,28 +50,28 @@
       error = String(e);
     }
   }
-  
+
   async function next() {
     if (index + 1 < pages.length) {
       index += 1;
       await loadCurrent();
     }
   }
-  
+
   async function prev() {
     if (index > 0) {
       index -= 1;
       await loadCurrent();
     }
   }
-  
+
   function onKey(e: KeyboardEvent) {
     if (e.key === 'ArrowRight' || e.key === ' ') next();
     if (e.key === 'ArrowLeft' || e.key === 'Backspace') prev();
   }
 </script>
 
-<main on:keydown={onKey} tabindex="0">
+<div role="application" on:keydown={onKey} tabindex="0" class:dropping>
   <header class="toolbar">
     <button class="btn" on:click={openZip}>Open ZIP/CBZ</button>
     {#if pages.length > 0}
@@ -75,13 +90,16 @@
       <img src={src} alt={pages[index]} />
     </div>
   {:else}
-    <div class="placeholder">Open a ZIP/CBZ to start.</div>
+    <div class="placeholder">
+      {dropping ? 'Drop ZIP/CBZ here' : 'Open a ZIP/CBZ to start.'}
+    </div>
   {/if}
-</main>
+</div>
 
 <style>
   :global(html, body, #app) { height: 100%; }
-  main { height: 100%; display: flex; flex-direction: column; }
+  div[role=application] { height: 100%; display: flex; flex-direction: column; }
+  div[role=application].dropping { outline: 2px dashed #88f; outline-offset: -4px; }
   .toolbar {
     display: flex; gap: .5rem; align-items: center;
     padding: .5rem .75rem; border-bottom: 1px solid #223;
